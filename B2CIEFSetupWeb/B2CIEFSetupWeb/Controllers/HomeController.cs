@@ -55,13 +55,22 @@ namespace B2CIEFSetupWeb.Controllers
         public async Task<IActionResult> Setup([FromServices] Utilities.B2CSetup setup, [FromServices] ITokenAcquisition tokenAcquisition)
         {
             var tenantId = User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/tenantid").Value;
-            var token = await tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, tenantId);
+            //var token = await tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, tenantId);
 
-            //await setup.CreateIEFAppsAsync(tenantId);
-
+            var res = await setup.SetupAsync(tenantId);
+            var model = new List<ItemSetupState>();
+            foreach(var item in res)
+            {
+                model.Add(new ItemSetupState()
+                {
+                    Name = item.Name,
+                    Id = (String.IsNullOrEmpty(item.Id)? "-": item.Id),
+                    Status = item.IsNew? "Created new": "Existed already"
+                });
+            }
             //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
 
-            return View();
+            return View(model);
         }
 
         [AllowAnonymous]

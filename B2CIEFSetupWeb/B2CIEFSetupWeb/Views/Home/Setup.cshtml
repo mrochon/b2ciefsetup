@@ -1,8 +1,24 @@
-﻿@{
+﻿@model IEnumerable<ItemSetupState>
+@{
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+    <div class="text-center">
+        <h1 class="display-4">Results</h1>
+
+        <table class="table table-bordered table-responsive table-hover">
+            <tr>
+                <th>Name</th>
+                <th>Id</th>
+                <th>Status</th>
+            </tr>
+            @foreach (var d in Model)
+            {
+                <tr>
+                    <td>@d.Name</td>
+                    <td>@d.Id</td>
+                    <td>@d.Status</td>
+                </tr>
+            }
+        </table>
+    </div>

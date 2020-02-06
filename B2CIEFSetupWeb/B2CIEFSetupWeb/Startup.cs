@@ -18,6 +18,7 @@ using Microsoft.Identity.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Identity.Web.TokenCacheProviders.Session;
 using Microsoft.Identity.Web.TokenCacheProviders.Distributed;
+using Microsoft.Identity.Web.TokenCacheProviders.InMemory;
 
 namespace B2CIEFSetupWeb
 {
@@ -57,9 +58,10 @@ namespace B2CIEFSetupWeb
             // Sign-in users with the Microsoft identity platform
             services.AddMicrosoftIdentityPlatformAuthentication(Configuration)
                .AddMsal(Configuration, Constants.Scopes)
-               .AddDistributedTokenCaches()
-               .AddDistributedMemoryCache();
-               //.AddSessionPerUserTokenCache();
+               .AddInMemoryTokenCaches();
+            //.AddDistributedTokenCaches()
+            //.AddDistributedMemoryCache();
+            //.AddSessionPerUserTokenCache();
 
             services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
             {
@@ -74,35 +76,32 @@ namespace B2CIEFSetupWeb
                     //    if (myIssuerValidationLogic(issuer)) return issuer;
                     //}
                 };
-
-                options.Events = new OpenIdConnectEvents
+                // Do not override: OnRedirectToIdentityProviderForSignOut or OnAuthorizationCodeReceived - handled in middleware
+                options.Events.OnRedirectToIdentityProvider = context =>
                 {
-                    OnRedirectToIdentityProvider = context =>
-                    {
-                        var tenant = context.Properties.GetParameter<string>("tenant");
-                        //var tenant = "mrochonb2cprod";
-                        context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
-                        return Task.CompletedTask;
-                    },
-                    OnTicketReceived = context =>
-                    {
-                        // If your authentication logic is based on users then add your logic here
-                        return Task.CompletedTask;
-                    },
-                    OnAuthenticationFailed = context =>
-                    {
-                        context.Response.Redirect("/Error");
-                        context.HandleResponse(); // Suppress the exception
-                        return Task.CompletedTask;
-                    },
-                    // If your application needs to authenticate single users, add your user validation below.
-                    OnTokenValidated = context =>
-                    {
-                        var id = context.ProtocolMessage.IdToken;
-                        return Task.CompletedTask;
-                    }
+                    var tenant = context.Properties.GetParameter<string>("tenant");
+                    context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
+                    return Task.CompletedTask;
+                };
+                options.Events.OnTicketReceived = context =>
+                {
+                    // If your authentication logic is based on users then add your logic here
+                    return Task.CompletedTask;
+                };
+                options.Events.OnAuthenticationFailed = context =>
+                {
+                    context.Response.Redirect("/Error");
+                    context.HandleResponse(); // Suppress the exception
+                    return Task.CompletedTask;
+                };
+                // If your application needs to authenticate single users, add your user validation below.
+                options.Events.OnTokenValidated = context =>
+                {
+                    var id = context.ProtocolMessage.IdToken;
+                    return Task.CompletedTask;
                 };
             });
+
             services.AddTransient<Utilities.B2CSetup>();
             services.AddControllersWithViews(options =>
             {

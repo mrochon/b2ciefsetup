@@ -13,10 +13,9 @@ namespace B2CIEFSetupWeb.Utilities
 {
     public interface IB2CSetup
     {
-        Task<IEFApps> CreateIEFAppsAsync(string domainId);
-        Task CreateKeysAsync();
+        Task<List<IEFObject>> SetupAsync(string domainId);
     }
-    public class B2CSetup: IB2CSetup
+    public class B2CSetup : IB2CSetup
     {
         private readonly ITokenAcquisition _tokenAcquisition;
         private readonly ILogger<B2CSetup> _logger;
@@ -25,11 +24,19 @@ namespace B2CIEFSetupWeb.Utilities
             _logger = logger;
             _tokenAcquisition = tokenAcquisition;
         }
-        public async Task<IEFApps> CreateIEFAppsAsync(string domainId)
+        public async Task<List<IEFObject>> SetupAsync(string domainId)
+        {
+            _actions = new List<IEFObject>();
+            await SetupIEFAppsAsync(domainId);
+            await SetupKeysAsync();
+            return _actions;
+        }
+        public List<IEFObject> _actions;
+
+        private async Task SetupIEFAppsAsync(string domainId)
         {
             var AppName = "IdentityExperienceFramework";
             var ProxyAppName = "ProxyIdentityExperienceFramework";
-            var appIds = new IEFApps();
 
             var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, domainId);
             var http = new HttpClient();
@@ -38,17 +45,41 @@ namespace B2CIEFSetupWeb.Utilities
             var json = await http.GetStringAsync("https://graph.microsoft.com/beta/domains");
             var value = (JArray)JObject.Parse(json)["value"];
             var domainName = ((JObject)value.First())["id"].Value<string>();
+            //TODO: needs refactoring
+            var appExists = false;
+            var proxyExists = false;
+
+            var appObject = new IEFObject() { Name = AppName };
+            _actions.Add(appObject);
+            json = await http.GetStringAsync($"https://graph.microsoft.com/beta/applications?$filter=startsWith(displayName,\'{AppName}\')");
+            value = (JArray)JObject.Parse(json)["value"];
+            if (value.Count > 0)
+            {
+                appExists = true;
+                appObject.Id = ((JObject)value.First())["appId"].Value<string>();
+            }
+            var proxyAppObject = new IEFObject() { Name = ProxyAppName };
+            _actions.Add(proxyAppObject);
+            json = await http.GetStringAsync($"https://graph.microsoft.com/beta/applications?$filter=startsWith(displayName,\'{ProxyAppName}\')");
+            value = (JArray)JObject.Parse(json)["value"];
+            if (value.Count > 0)
+            {
+                proxyExists = true;
+                proxyAppObject.Id = ((JObject)value.First())["appId"].Value<string>();
+            }
+            if (appExists || proxyExists) return; // Sorry!
+            //TODO: should verify whether the two apps are setup correctly
 
             var requiredAADAccess = new
             {
                 resourceAppId = "00000002-0000-0000-c000-000000000000",
                 resourceAccess = new List<object>()
-                {
-                    new {
-                        id = "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
-                        type = "Scope"
-                    }
+            {
+                new {
+                    id = "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
+                    type = "Scope"
                 }
+            }
             };
             var iefApiPermission = new
             {
@@ -88,20 +119,21 @@ namespace B2CIEFSetupWeb.Utilities
             {
                 var body = await resp.Content.ReadAsStringAsync();
                 var appJSON = JObject.Parse(body);
-                appIds.AppId = (string)appJSON["appId"];
+                appObject.Id = (string)appJSON["appId"];
+                appObject.IsNew = true;
                 var spId = Guid.NewGuid().ToString("D");
                 var sp = new
                 {
                     accountEnabled = true,
-                    appId = appIds.AppId,
+                    appId = appObject.Id,
                     appRoleAssignmentRequired = false,
                     displayName = AppName,
                     homepage = $"https://login.microsoftonline.com/{domainName}",
                     replyUrls = new List<string>() { $"https://login.microsoftonline.com/{domainName}" },
                     servicePrincipalNames = new List<string>() {
-                        app.identifierUris[0],
-                        appIds.AppId
-                    },
+                    app.identifierUris[0],
+                    appObject.Id
+                },
                     tags = new string[] { "WindowsAzureActiveDirectoryIntegratedApp" },
                 };
                 resp = await http.PostAsync($"https://graph.microsoft.com/beta/servicePrincipals",
@@ -118,28 +150,28 @@ namespace B2CIEFSetupWeb.Utilities
                 publicClient = new { redirectUris = new List<string>() { $"https://login.microsoftonline.com/{domainName}" } },
                 parentalControlSettings = new { legalAgeGroupRule = "Allow" },
                 requiredResourceAccess = new List<object>() {
-                    new {
-                        resourceAppId = appIds.AppId,
-                        resourceAccess = new List<object>()
-                        {
-                            new {
-                                id = iefApiPermission.id,
-                                type = "Scope"
-                            }
-                        }
-                    },
-                    new {
-                        resourceAppId = "00000002-0000-0000-c000-000000000000",
-                        resourceAccess = new List<object>()
-                        {
-                            new
-                            {
-                                id = "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
-                                type = "Scope"
-                            }
+                new {
+                    resourceAppId = appObject.Id,
+                    resourceAccess = new List<object>()
+                    {
+                        new {
+                            id = iefApiPermission.id,
+                            type = "Scope"
                         }
                     }
                 },
+                new {
+                    resourceAppId = "00000002-0000-0000-c000-000000000000",
+                    resourceAccess = new List<object>()
+                    {
+                        new
+                        {
+                            id = "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
+                            type = "Scope"
+                        }
+                    }
+                }
+            },
                 web = new
                 {
                     implicitGrantSettings = new
@@ -157,19 +189,20 @@ namespace B2CIEFSetupWeb.Utilities
             {
                 var body = await resp.Content.ReadAsStringAsync();
                 var appJSON = JObject.Parse(body);
-                appIds.ProxyAppId = (string)appJSON["appId"];
+                proxyAppObject.Id = (string)appJSON["appId"];
+                proxyAppObject.IsNew = true;
                 var sp = new
                 {
                     accountEnabled = true,
-                    appId = appIds.ProxyAppId,
+                    appId = proxyAppObject.Id,
                     appRoleAssignmentRequired = false,
                     displayName = ProxyAppName,
                     //homepage = $"https://login.microsoftonline.com/{domainName}",
                     //publisherName = domainNamePrefix,
                     replyUrls = new List<string>() { $"https://login.microsoftonline.com/{domainName}" },
                     servicePrincipalNames = new List<string>() {
-                        appIds.ProxyAppId
-                    },
+                    proxyAppObject.Id
+                },
                     tags = new string[] { "WindowsAzureActiveDirectoryIntegratedApp" },
                 };
                 resp = await http.PostAsync($"https://graph.microsoft.com/beta/servicePrincipals",
@@ -178,16 +211,19 @@ namespace B2CIEFSetupWeb.Utilities
                 //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
                 _logger.LogInformation($"IEF App {ProxyAppName} created.");
             }
-            return appIds;
+
+            return;
         }
         private List<string> _keys;
-        public async Task CreateKeysAsync()
+        private async Task SetupKeysAsync()
         {
             await CreateKeyIfNotExistsAsync("TokenSigningKeyContainer", "sig");
             await CreateKeyIfNotExistsAsync("TokenEncryptionKeyContainer", "enc");
         }
         private async Task CreateKeyIfNotExistsAsync(string name, string use)
         {
+            var keySetupState = new IEFObject() { Name = name };
+            _actions.Add(keySetupState);
             var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes);
             var http = new HttpClient();
             http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
@@ -217,17 +253,18 @@ namespace B2CIEFSetupWeb.Utilities
                         await http.DeleteAsync($"https://graph.microsoft.com/beta/trustFramework/keySets/{id}");
                         throw new Exception(httpResp.ReasonPhrase);
                     }
+                    keySetupState.IsNew = true;
                 }
                 else
                     throw new Exception(httpResp.ReasonPhrase);
             }
-
         }
     }
 
-    public class IEFApps
+    public class IEFObject
     {
-        public string AppId;
-        public string ProxyAppId;
+        public string Name;
+        public string Id;
+        public bool IsNew;
     }
 }
