@@ -183,7 +183,7 @@ namespace Microsoft.Identity.Web
         /// <returns></returns>
         public static CookiePolicyOptions HandleSameSiteCookieCompatibility(this CookiePolicyOptions options, Func<string, bool> disallowsSameSiteNone)
         {
-            options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
+            options.MinimumSameSitePolicy = SameSiteMode.None; // Unspecified;
             options.OnAppendCookie = cookieContext =>
                 CheckSameSite(cookieContext.Context, cookieContext.CookieOptions, disallowsSameSiteNone);
             options.OnDeleteCookie = cookieContext =>
@@ -198,7 +198,7 @@ namespace Microsoft.Identity.Web
                 var userAgent = httpContext.Request.Headers["User-Agent"].ToString();
                 if (disallowsSameSiteNone(userAgent))
                 {
-                    options.SameSite = SameSiteMode.Unspecified;
+                    options.SameSite = SameSiteMode.None; //  Unspecified;
                 }
             }
         }

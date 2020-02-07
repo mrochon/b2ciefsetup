@@ -49,7 +49,7 @@ namespace B2CIEFSetupWeb
             {
                 // This lambda determines whether user consent for non-essential cookies is needed for a given request.
                 options.CheckConsentNeeded = context => true;
-                options.MinimumSameSitePolicy = SameSiteMode.Unspecified;
+                options.MinimumSameSitePolicy = SameSiteMode.None; // Unspecified;
                 // Handling SameSite cookie according to https://docs.microsoft.com/en-us/aspnet/core/security/samesite?view=aspnetcore-3.1
                 options.HandleSameSiteCookieCompatibility();
             });
@@ -118,7 +118,7 @@ namespace B2CIEFSetupWeb
                 };
                 options.Events.OnAuthenticationFailed = context =>
                 {
-                    context.Response.Redirect("/Error");
+                    context.Response.Redirect($"/Error?msg={context.Exception.Message}&code={context.Exception.Source}");
                     context.HandleResponse(); // Suppress the exception
                     return Task.CompletedTask;
                 };

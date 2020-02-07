@@ -148,7 +148,7 @@ namespace B2CIEFSetupWeb.Utilities
                 resp = await _http.PostAsync($"https://graph.microsoft.com/beta/servicePrincipals",
                     new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
                 if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
-                _logger.LogInformation($"IEF App {AppName} created.");
+                _logger.LogInformation($"IEF App {AppName} created in {DomainName}");
             }
 
             var proxyApp = new
@@ -218,7 +218,7 @@ namespace B2CIEFSetupWeb.Utilities
                     new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
                 if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
                 //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
-                _logger.LogInformation($"IEF App {ProxyAppName} created.");
+                _logger.LogInformation($"IEF App {ProxyAppName} created in {DomainName}.");
             }
 
             return;
