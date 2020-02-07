@@ -5,6 +5,15 @@ using System.Threading.Tasks;
 
 namespace B2CIEFSetupWeb.Models
 {
+    public class SetupState
+    {
+        public SetupState()
+        {
+            Items = new List<ItemSetupState>();
+        }
+        public string ConsentUrl { get; set; }
+        public List<ItemSetupState> Items { get; set; }
+    }
     public class ItemSetupState
     {
         public string Name;

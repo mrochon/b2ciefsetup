@@ -80,9 +80,37 @@ namespace B2CIEFSetupWeb
                 options.Events.OnRedirectToIdentityProvider = context =>
                 {
                     var tenant = context.Properties.GetParameter<string>("tenant");
-                    context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
+                    //var consent = context.Properties.GetParameter<bool>("admin_consent");
+                    //if (consent)
+                    //    context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/v2.0/adminconsent";
+                    //else
+                        context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
+                    //context.ProtocolMessage.Parameters.Add("scopes", "test");
                     return Task.CompletedTask;
                 };
+                /*
+                options.Events.OnMessageReceived = context =>
+                {
+                    var consent = context.Request.Query["admin_consent"].ToString();
+                    if (consent == "True")
+                    {
+                        var tenant = context.Request.Query["tenant"].First();
+                        context.Request.HttpContext.ChallengeAsync(
+                            "AzureADOpenID",
+                            new AuthenticationProperties(
+                                new Dictionary<string, string>()
+                                {
+                                    { ".redirect", "/home/setup" }
+                                },
+                                new Dictionary<string, object>()
+                                {
+                                    {"tenant", tenant }
+                                }));
+                        context.HandleResponse();
+                    }
+                    return Task.CompletedTask;
+                };
+                */
                 options.Events.OnTicketReceived = context =>
                 {
                     // If your authentication logic is based on users then add your logic here

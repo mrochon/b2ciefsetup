@@ -1,10 +1,10 @@
-﻿@model IEnumerable<ItemSetupState>
+﻿@model SetupState
 @{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Setup results";
 }
 
     <div class="text-center">
-        <h1 class="display-4">Results</h1>
+        <h1 class="display-4">Setup results</h1>
 
         <table class="table table-bordered table-responsive table-hover">
             <tr>
@@ -12,7 +12,7 @@
                 <th>Id</th>
                 <th>Status</th>
             </tr>
-            @foreach (var d in Model)
+            @foreach (var d in Model.Items)
             {
                 <tr>
                     <td>@d.Name</td>
@@ -21,4 +21,10 @@
                 </tr>
             }
         </table>
+        @if(!String.IsNullOrEmpty(Model.ConsentUrl))
+        {
+            <p>To enable the new IEF-related apps to work correctly please grant consent to their APIs by 
+            following this <a href=@Model.ConsentUrl>link</a>. After asking for consent, B2C will redirect your browser to
+            a non-existent url - you can ignore the resultant error message.</p>
+        }
     </div>

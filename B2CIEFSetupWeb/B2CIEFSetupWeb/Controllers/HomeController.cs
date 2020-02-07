@@ -17,21 +17,25 @@ namespace B2CIEFSetupWeb.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IAuthenticationService _authenticator;
-        private readonly Utilities.IB2CSetup _setup;
 
         public HomeController(
-            //Utilities.IB2CSetup setup,
             ILogger<HomeController> logger, 
             IAuthenticationService authenticator
             )
         {
             _logger = logger;
             _authenticator = authenticator;
-            //_setup = setup;
         }
 
-        public async Task<IActionResult> Index()
+        public IActionResult Index()
         {
+            return View(new SetupRequest());
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> Index(SetupRequest req)
+        {
+            //TODO: allow user to requets read scopes only (no app creation)
             await _authenticator.ChallengeAsync(
                 Request.HttpContext,
                 "AzureADOpenID",
@@ -42,7 +46,8 @@ namespace B2CIEFSetupWeb.Controllers
                     },
                     new Dictionary<string, object>()
                     {
-                        {"tenant", "mrochonb2cprod" }
+                        {"tenant", req.DomainName },
+                        //{"admin_consent", true }
                     }));
             return View();
         }
@@ -58,17 +63,18 @@ namespace B2CIEFSetupWeb.Controllers
             //var token = await tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, tenantId);
 
             var res = await setup.SetupAsync(tenantId);
-            var model = new List<ItemSetupState>();
+            var model = new SetupState();
             foreach(var item in res)
             {
-                model.Add(new ItemSetupState()
+                model.Items.Add(new ItemSetupState()
                 {
                     Name = item.Name,
                     Id = (String.IsNullOrEmpty(item.Id)? "-": item.Id),
                     Status = item.IsNew? "Created new": "Existed already"
                 });
             }
-            //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
+            if(res[1].IsNew)
+                model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/authorize?client_id={res[1].Id}&prompt=admin_consent&response_type=code&nonce=defaultNonce";
 
             return View(model);
         }
