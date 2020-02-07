@@ -73,8 +73,7 @@ namespace B2CIEFSetupWeb.Controllers
                     Status = item.IsNew? "Created new": "Existed already"
                 });
             }
-            if(res[1].IsNew)
-                model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/authorize?client_id={res[1].Id}&prompt=admin_consent&response_type=code&nonce=defaultNonce";
+            model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/authorize?client_id={res[1].Id}&prompt=admin_consent&response_type=code&nonce=defaultNonce";
 
             return View(model);
         }
