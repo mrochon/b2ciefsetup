@@ -139,6 +139,7 @@ namespace B2CIEFSetupWeb
                 options.Filters.Add(new AuthorizeFilter(policy));*/
             });
             services.AddRazorPages();
+            services.AddApplicationInsightsTelemetry();
         }
 
         private static void UpdateScopes(ICollection<string> currScopes, bool readOnly)

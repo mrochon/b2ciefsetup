@@ -30,30 +30,39 @@ namespace B2CIEFSetupWeb.Utilities
         private bool _readOnly = false;
         public async Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly)
         {
-            _readOnly = readOnly;
-            var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(
-                readOnly? Constants.ReadOnlyScopes: Constants.ReadWriteScopes, 
-                domainId);
-            _http = new HttpClient();
-            _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            using (_logger.BeginScope("SetupAsync: {0} - Read only: {1}", domainId, readOnly))
+            {
+                _readOnly = readOnly;
+                try
+                {
+                    var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(
+                        readOnly ? Constants.ReadOnlyScopes : Constants.ReadWriteScopes,
+                        domainId);
+                    _http = new HttpClient();
+                    _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-            _actions = new List<IEFObject>();
-            await SetupIEFAppsAsync(domainId);
-            await SetupKeysAsync();
-            var extAppId = await GetAppIdAsync("b2c-extensions-app");
-            _actions.Add(new IEFObject()
-            {
-                Name = "Extensions app: appId",
-                Id = extAppId,
-                Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound : IEFObject.S.Existing
-            });
-            extAppId = await GetAppIdAsync("b2c-extensions-app", true);
-            _actions.Add(new IEFObject()
-            {
-                Name = "Extensions app: objectId",
-                Id = extAppId,
-                Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound: IEFObject.S.Existing
-            });
+                    _actions = new List<IEFObject>();
+                    await SetupIEFAppsAsync(domainId);
+                    await SetupKeysAsync();
+                    var extAppId = await GetAppIdAsync("b2c-extensions-app");
+                    _actions.Add(new IEFObject()
+                    {
+                        Name = "Extensions app: appId",
+                        Id = extAppId,
+                        Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound : IEFObject.S.Existing
+                    });
+                    extAppId = await GetAppIdAsync("b2c-extensions-app", true);
+                    _actions.Add(new IEFObject()
+                    {
+                        Name = "Extensions app: objectId",
+                        Id = extAppId,
+                        Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound : IEFObject.S.Existing
+                    });
+                } catch(Exception ex)
+                {
+                    _logger.LogError(ex, "SetupAsync failed");
+                }
+            }
             return _actions;
         }
         public List<IEFObject> _actions;
@@ -67,6 +76,7 @@ namespace B2CIEFSetupWeb.Utilities
             var json = await _http.GetStringAsync("https://graph.microsoft.com/beta/domains");
             var value = (JArray)JObject.Parse(json)["value"];
             DomainName = ((JObject)value.First())["id"].Value<string>();
+            _logger.LogTrace("Domain: {0}", DomainName);
             //TODO: needs refactoring
 
             _actions.Add(new IEFObject()
@@ -135,6 +145,7 @@ namespace B2CIEFSetupWeb.Utilities
                 new StringContent(json, Encoding.UTF8, "application/json"));
             if (resp.IsSuccessStatusCode)
             {
+                _logger.LogTrace("{0} application created", AppName);
                 var body = await resp.Content.ReadAsStringAsync();
                 var appJSON = JObject.Parse(body);
                 _actions[0].Id = (string)appJSON["appId"];
@@ -157,7 +168,7 @@ namespace B2CIEFSetupWeb.Utilities
                 resp = await _http.PostAsync($"https://graph.microsoft.com/beta/servicePrincipals",
                     new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
                 if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
-                _logger.LogInformation($"IEF App {AppName} created in {DomainName}");
+                _logger.LogTrace("{0} SP created", AppName);
             }
 
             var proxyApp = new
@@ -205,6 +216,7 @@ namespace B2CIEFSetupWeb.Utilities
                 new StringContent(json, Encoding.UTF8, "application/json"));
             if (resp.IsSuccessStatusCode)
             {
+                _logger.LogTrace("{0} app created", ProxyAppName);
                 var body = await resp.Content.ReadAsStringAsync();
                 var appJSON = JObject.Parse(body);
                 _actions[1].Id = (string)appJSON["appId"];
@@ -227,7 +239,7 @@ namespace B2CIEFSetupWeb.Utilities
                     new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
                 if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
                 //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
-                _logger.LogInformation($"IEF App {ProxyAppName} created in {DomainName}.");
+                _logger.LogTrace("{0} SP created", AppName);
             }
 
             return;
