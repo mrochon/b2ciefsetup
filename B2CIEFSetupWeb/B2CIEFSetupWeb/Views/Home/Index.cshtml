@@ -19,13 +19,15 @@
                 You will asked to consent to a number of permissions needed to create applications, service principals and security keys in your tenant.
                 You will need to consent for the app to complete the setup.
             </li>
-            <li>The application will verify existence or create the two applications and signing/encryption keys as per above document</li>
-            <li>The application will display the names, guid and status of the objects once completed.</li>
+            <li>The application will verify existence of or create the two applications and signing/encryption keys as per above document</li>
+            <li>The application will display the names, guids and status of the objects once completed.</li>
             <li>The application will <b>not</b> create the Facebook IdP provider used by some starter policies. Follow <a href="https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#create-the-facebook-key">this document</a> if you need it.</li>
         </ol>
         <form asp-action="Index" asp-controller="Home">
             <label asp-for="DomainName"></label>
             <p><input asp-for="DomainName" placeholder="yourdomain" style="text-align: right" />.onmicrosoft.com</p>
+            <p><label asp-for="ValidateOnly"></label>
+                <input asp-for="ValidateOnly" /></p>
             <input type="submit" />
         </form>
     </div>

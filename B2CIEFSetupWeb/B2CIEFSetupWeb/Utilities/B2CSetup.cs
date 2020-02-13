@@ -14,7 +14,7 @@ namespace B2CIEFSetupWeb.Utilities
 {
     public interface IB2CSetup
     {
-        Task<List<IEFObject>> SetupAsync(string domainId);
+        Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly);
     }
     public class B2CSetup : IB2CSetup
     {
@@ -27,9 +27,13 @@ namespace B2CIEFSetupWeb.Utilities
             _tokenAcquisition = tokenAcquisition;
         }
         public string DomainName { get; private set; }
-        public async Task<List<IEFObject>> SetupAsync(string domainId)
+        private bool _readOnly = false;
+        public async Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly)
         {
-            var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, domainId);
+            _readOnly = readOnly;
+            var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(
+                readOnly? Constants.ReadOnlyScopes: Constants.ReadWriteScopes, 
+                domainId);
             _http = new HttpClient();
             _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
@@ -41,14 +45,14 @@ namespace B2CIEFSetupWeb.Utilities
             {
                 Name = "Extensions app: appId",
                 Id = extAppId,
-                IsNew = false
+                Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound : IEFObject.S.Existing
             });
             extAppId = await GetAppIdAsync("b2c-extensions-app", true);
             _actions.Add(new IEFObject()
             {
                 Name = "Extensions app: objectId",
                 Id = extAppId,
-                IsNew = false
+                Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound: IEFObject.S.Existing
             });
             return _actions;
         }
@@ -68,16 +72,21 @@ namespace B2CIEFSetupWeb.Utilities
             _actions.Add(new IEFObject()
             {
                 Name = AppName,
+                Status = IEFObject.S.NotFound
             });
             _actions[0].Id = await GetAppIdAsync(_actions[0].Name);
+            if (!String.IsNullOrEmpty(_actions[0].Id)) _actions[0].Status = IEFObject.S.Existing;
             _actions.Add(new IEFObject()
             {
                 Name = ProxyAppName,
+                Status = IEFObject.S.NotFound
             });
             _actions[1].Id = await GetAppIdAsync(_actions[1].Name);
+            if (!String.IsNullOrEmpty(_actions[1].Id)) _actions[1].Status = IEFObject.S.Existing;
 
-            if (!String.IsNullOrEmpty(_actions[0].Id) && !String.IsNullOrEmpty(_actions[1].Id)) return; // Sorry!
+            if (!String.IsNullOrEmpty(_actions[0].Id) && !String.IsNullOrEmpty(_actions[1].Id)) return; // Sorry! What if only one exists?
             //TODO: should verify whether the two apps are setup correctly
+            if (_readOnly) return;
 
             var requiredAADAccess = new
             {
@@ -129,7 +138,7 @@ namespace B2CIEFSetupWeb.Utilities
                 var body = await resp.Content.ReadAsStringAsync();
                 var appJSON = JObject.Parse(body);
                 _actions[0].Id = (string)appJSON["appId"];
-                _actions[0].IsNew = true;
+                _actions[0].Status = IEFObject.S.New;
                 var spId = Guid.NewGuid().ToString("D");
                 var sp = new
                 {
@@ -199,7 +208,7 @@ namespace B2CIEFSetupWeb.Utilities
                 var body = await resp.Content.ReadAsStringAsync();
                 var appJSON = JObject.Parse(body);
                 _actions[1].Id = (string)appJSON["appId"];
-                _actions[1].IsNew = true;
+                _actions[1].Status = IEFObject.S.New;
                 var sp = new
                 {
                     accountEnabled = true,
@@ -231,16 +240,21 @@ namespace B2CIEFSetupWeb.Utilities
         }
         private async Task CreateKeyIfNotExistsAsync(string name, string use)
         {
-            var keySetupState = new IEFObject() { Name = name };
+            var keySetupState = new IEFObject() { Name = name, Status = IEFObject.S.NotFound };
             _actions.Add(keySetupState);
-           if (_keys == null)
+            if (_keys == null)
             {
                 var resp = await _http.GetStringAsync("https://graph.microsoft.com/beta/trustFramework/keySets");
                 var keys = (JArray)JObject.Parse(resp)["value"];
                 _keys = keys.Select(k => k["id"].Value<string>()).ToList();
             }
-            if (!_keys.Contains($"B2C_1A_{name}"))
+            var kName = $"B2C_1A_{name}";
+            if (_keys.Contains($"B2C_1A_{name}"))
             {
+                keySetupState.Status = IEFObject.S.Existing;
+                if (_readOnly) return;
+            } else {
+                if (_readOnly) return;
                 var httpResp = await _http.PostAsync("https://graph.microsoft.com/beta/trustFramework/keySets",
                     new StringContent(JsonConvert.SerializeObject(new { id = name }), Encoding.UTF8, "application/json"));
                 if (httpResp.IsSuccessStatusCode)
@@ -259,7 +273,7 @@ namespace B2CIEFSetupWeb.Utilities
                         await _http.DeleteAsync($"https://graph.microsoft.com/beta/trustFramework/keySets/{id}");
                         throw new Exception(httpResp.ReasonPhrase);
                     }
-                    keySetupState.IsNew = true;
+                    keySetupState.Status = IEFObject.S.New;
                 }
                 else
                     throw new Exception(httpResp.ReasonPhrase);
@@ -283,8 +297,9 @@ namespace B2CIEFSetupWeb.Utilities
 
     public class IEFObject
     {
+        public enum S { New, Existing, NotFound }
         public string Name;
         public string Id;
-        public bool IsNew;
+        public S Status;
     }
 }

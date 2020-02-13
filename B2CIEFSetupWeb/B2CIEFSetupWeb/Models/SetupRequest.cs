@@ -12,7 +12,12 @@ namespace B2CIEFSetupWeb.Models
         [Required]
         [MaxLength(256), MinLength(4)]
         [RegularExpression("^([a-zA-Z0-9]+)$", ErrorMessage = "Invalid tenant name")]
-        [DisplayName("Domain name")]
+        [DisplayName("Your B2C domain name")]
         public string DomainName { get; set; }
+
+        [Required]
+        [DisplayName("Validate only (do not create)")]
+        public bool ValidateOnly { get; set; }
+
     }
 }

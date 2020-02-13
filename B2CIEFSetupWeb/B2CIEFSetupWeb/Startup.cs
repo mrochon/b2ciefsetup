@@ -57,13 +57,13 @@ namespace B2CIEFSetupWeb
 
             // Sign-in users with the Microsoft identity platform
             services.AddMicrosoftIdentityPlatformAuthentication(Configuration)
-               .AddMsal(Configuration, Constants.Scopes)
+               .AddMsal(Configuration, Constants.ReadWriteScopes)
                .AddInMemoryTokenCaches();
             //.AddDistributedTokenCaches()
             //.AddDistributedMemoryCache();
             //.AddSessionPerUserTokenCache();
 
-            services.Configure<OpenIdConnectOptions>(AzureADDefaults.OpenIdScheme, options =>
+            services.Configure(AzureADDefaults.OpenIdScheme, (Action<OpenIdConnectOptions>)(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -80,37 +80,37 @@ namespace B2CIEFSetupWeb
                 options.Events.OnRedirectToIdentityProvider = context =>
                 {
                     var tenant = context.Properties.GetParameter<string>("tenant");
+                    var readOnly = context.Properties.GetParameter<bool>("readOnly");
                     //var consent = context.Properties.GetParameter<bool>("admin_consent");
                     //if (consent)
                     //    context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/v2.0/adminconsent";
                     //else
                         context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
                     //context.ProtocolMessage.Parameters.Add("scopes", "test");
+                    context.ProtocolMessage.Scope = context.ProtocolMessage.Scope.Replace("offline_access", ""); // not needed
+                    //TODO: use StringBuilder
+                    if (readOnly)
+                    {
+                        foreach (var s in Constants.ReadWriteScopes)
+                            context.ProtocolMessage.Scope = context.ProtocolMessage.Scope.Replace(s, "");
+                        context.ProtocolMessage.Scope += (" " + string.Join(" ", Constants.ReadOnlyScopes));
+                    } else
+                    {
+                        foreach (var s in Constants.ReadOnlyScopes)
+                            context.ProtocolMessage.Scope = context.ProtocolMessage.Scope.Replace(s, "");
+                        context.ProtocolMessage.Scope += (" " + string.Join(" ", Constants.ReadWriteScopes));
+                    }
+                    context.ProtocolMessage.State = readOnly.ToString();
                     return Task.CompletedTask;
                 };
-                /*
                 options.Events.OnMessageReceived = context =>
                 {
-                    var consent = context.Request.Query["admin_consent"].ToString();
-                    if (consent == "True")
-                    {
-                        var tenant = context.Request.Query["tenant"].First();
-                        context.Request.HttpContext.ChallengeAsync(
-                            "AzureADOpenID",
-                            new AuthenticationProperties(
-                                new Dictionary<string, string>()
-                                {
-                                    { ".redirect", "/home/setup" }
-                                },
-                                new Dictionary<string, object>()
-                                {
-                                    {"tenant", tenant }
-                                }));
-                        context.HandleResponse();
-                    }
+                    var readOnly = false;
+                    var readOnlyStr = context.ProtocolMessage.State;
+                    bool.TryParse(readOnlyStr, out readOnly);
+                    UpdateScopes(options.Scope, readOnly);
                     return Task.CompletedTask;
                 };
-                */
                 options.Events.OnTicketReceived = context =>
                 {
                     // If your authentication logic is based on users then add your logic here
@@ -128,7 +128,7 @@ namespace B2CIEFSetupWeb
                     var id = context.ProtocolMessage.IdToken;
                     return Task.CompletedTask;
                 };
-            });
+            }));
 
             services.AddTransient<Utilities.B2CSetup>();
             services.AddControllersWithViews(options =>
@@ -139,6 +139,26 @@ namespace B2CIEFSetupWeb
                 options.Filters.Add(new AuthorizeFilter(policy));*/
             });
             services.AddRazorPages();
+        }
+
+        private static void UpdateScopes(ICollection<string> currScopes, bool readOnly)
+        {
+            var scopes = currScopes.ToList();
+            foreach (var s in scopes)
+            {
+                if (readOnly)
+                {
+                    if (Constants.ReadWriteScopes.Contains(s)) currScopes.Remove(s);
+                }
+                else
+                {
+                    if (Constants.ReadOnlyScopes.Contains(s)) currScopes.Remove(s);
+                }
+            }
+            foreach (var s in readOnly ? Constants.ReadOnlyScopes : Constants.ReadWriteScopes)
+            {
+                currScopes.Add(s);
+            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

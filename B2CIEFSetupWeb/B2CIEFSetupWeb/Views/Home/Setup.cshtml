@@ -21,9 +21,12 @@
                 </tr>
             }
         </table>
-        <p>To enable the new IEF-related apps to work correctly please grant consent to their APIs by 
-        following this <a href=@Model.ConsentUrl>link</a>. After asking for consent, B2C will redirect your browser to
-        a non-existent url - you can ignore the resultant error message.</p>
+        <p class="text-justify">The above IEF applications (resource: IdentityExperienceFramework and client: ProxyIdentityExperienceFramework) need an admin consent before 
+        they can be used by IEF policies. You can provide this this consent through the <a href="https://portal.azure.com">Azure portal</a> or by
+        <a href=@Model.ConsentUrl>requesting an OIDC signin to the client app.</a> You will be asked to sign in (make sure to use an admin account) and 
+        then consent to the IEF client app getting a token to the resource app. You will be then redirected to a non-existent page - client app
+            has no valid reply url. You can ignore that - consent has already been recorded.
+        </p>
 
         <a href="https://github.com/mrochon/b2cief-upload">Other local desktop tools</a>
     </div>

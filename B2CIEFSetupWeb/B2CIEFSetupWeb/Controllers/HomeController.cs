@@ -10,6 +10,7 @@ using B2CIEFSetupWeb.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
+using B2CIEFSetupWeb.Utilities;
 
 namespace B2CIEFSetupWeb.Controllers
 {
@@ -42,11 +43,12 @@ namespace B2CIEFSetupWeb.Controllers
                 new AuthenticationProperties(
                     new Dictionary<string, string>()
                     {
-                        { ".redirect", "/home/setup" }
+                        { ".redirect", "/home/setup?readOnly=" + req.ValidateOnly.ToString() }
                     },
                     new Dictionary<string, object>()
                     {
                         {"tenant", req.DomainName },
+                        {"readOnly", req.ValidateOnly }
                         //{"admin_consent", true }
                     }));
             return View();
@@ -59,10 +61,13 @@ namespace B2CIEFSetupWeb.Controllers
         [Authorize]
         public async Task<IActionResult> Setup([FromServices] Utilities.B2CSetup setup, [FromServices] ITokenAcquisition tokenAcquisition)
         {
+            var readOnlyStr = Request.Query["readOnly"].First();
+            bool readOnly = true;
+            bool.TryParse(readOnlyStr, out readOnly);
             var tenantId = User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/tenantid").Value;
             //var token = await tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, tenantId);
 
-            var res = await setup.SetupAsync(tenantId);
+            var res = await setup.SetupAsync(tenantId, readOnly);
             var model = new SetupState();
             foreach(var item in res)
             {
@@ -70,7 +75,7 @@ namespace B2CIEFSetupWeb.Controllers
                 {
                     Name = item.Name,
                     Id = (String.IsNullOrEmpty(item.Id)? "-": item.Id),
-                    Status = item.IsNew? "Created new": "Existed already"
+                    Status = item.Status == IEFObject.S.Existing? "Existing": item.Status == IEFObject.S.New ? "New": "Not found"
                 });
             }
             model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/authorize?client_id={res[1].Id}&prompt=admin_consent&response_type=code&nonce=defaultNonce";
