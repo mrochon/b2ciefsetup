@@ -118,7 +118,7 @@ namespace B2CIEFSetupWeb
                 };
                 options.Events.OnAuthenticationFailed = context =>
                 {
-                    context.Response.Redirect($"/Error?msg={context.Exception.Message}&code={context.Exception.Source}");
+                    context.Response.Redirect($"/Error?msg={Base64UrlEncoder.Encode(context.Exception.Message)}");
                     context.HandleResponse(); // Suppress the exception
                     return Task.CompletedTask;
                 };
