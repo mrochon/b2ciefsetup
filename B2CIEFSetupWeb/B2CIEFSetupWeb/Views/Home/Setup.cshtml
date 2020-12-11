@@ -24,7 +24,7 @@
      </div>
     <div class="text-left">
         <p class="text-justify">The above IEF applications (resource: IdentityExperienceFramework and client: ProxyIdentityExperienceFramework) need an admin consent before 
-        they can be used by IEF policies. <b>If their status shows up as 'New' above, you MUST provide this this consent through the <a href="https://portal.azure.com">Azure portal</a> or by
+        they can be used by IEF policies. <b>If their status shows up as 'New' above, you MUST provide this consent through the <a href="https://portal.azure.com">Azure portal</a> or by
         <a href=@Model.ConsentUrl>requesting an OIDC signin to the client app.</a></b> You will be asked to sign in (make sure to use an admin account) and 
         then consent to the IEF client app getting a token to the resource app. You will be then redirected to a non-existent page - client app
             has no valid reply url. You can ignore that - consent has already been recorded.
