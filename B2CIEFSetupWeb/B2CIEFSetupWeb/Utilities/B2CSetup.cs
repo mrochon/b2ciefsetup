@@ -35,7 +35,7 @@ namespace B2CIEFSetupWeb.Utilities
                 _readOnly = readOnly;
                 try
                 {
-                    var token = await _tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(
+                    var token = await _tokenAcquisition.GetAccessTokenForUserAsync(
                         readOnly ? Constants.ReadOnlyScopes : Constants.ReadWriteScopes,
                         domainId);
                     _http = new HttpClient();

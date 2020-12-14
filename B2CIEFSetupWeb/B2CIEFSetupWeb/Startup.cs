@@ -56,38 +56,34 @@ namespace B2CIEFSetupWeb
             services.AddOptions();
 
             // Sign-in users with the Microsoft identity platform
-            services.AddMicrosoftIdentityPlatformAuthentication(Configuration)
-               .AddMsal(Configuration, Constants.ReadWriteScopes)
+            services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+               .AddMicrosoftIdentityWebApp(Configuration.GetSection("AzureAd"))
+               .EnableTokenAcquisitionToCallDownstreamApi(Constants.ReadWriteScopes)
                .AddInMemoryTokenCaches();
             //.AddDistributedTokenCaches()
             //.AddDistributedMemoryCache();
             //.AddSessionPerUserTokenCache();
 
-            services.Configure(AzureADDefaults.OpenIdScheme, (Action<OpenIdConnectOptions>)(options =>
+            services.Configure(OpenIdConnectDefaults.AuthenticationScheme, (Action<OpenIdConnectOptions>)(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    // Instead of using the default validation (validating against a single issuer value, as we do in
-                    // line of business apps), we inject our own multitenant validation logic
                     ValidateIssuer = false,
-
-                    // If the app is meant to be accessed by entire organizations, add your issuer validation logic here.
-                    //IssuerValidator = (issuer, securityToken, validationParameters) => {
-                    //    if (myIssuerValidationLogic(issuer)) return issuer;
-                    //}
                 };
-                // Do not override: OnRedirectToIdentityProviderForSignOut or OnAuthorizationCodeReceived - handled in middleware
-                options.Events.OnRedirectToIdentityProvider = context =>
+                var previousRedirect = options.Events.OnRedirectToIdentityProvider;
+                options.Events.OnRedirectToIdentityProvider = async context =>
                 {
+                    if (previousRedirect != null)
+                    {
+                        await previousRedirect(context);
+                    }
                     var tenant = context.Properties.GetParameter<string>("tenant");
                     var readOnly = context.Properties.GetParameter<bool>("readOnly");
                     //var consent = context.Properties.GetParameter<bool>("admin_consent");
                     //if (consent)
                     //    context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/v2.0/adminconsent";
                     //else
-                        context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
-                    //context.ProtocolMessage.Parameters.Add("scopes", "test");
-                    context.ProtocolMessage.Scope = context.ProtocolMessage.Scope.Replace("offline_access", ""); // not needed
+                    context.ProtocolMessage.IssuerAddress = $"https://login.microsoftonline.com/{tenant}.onmicrosoft.com/oauth2/v2.0/authorize";
                     //TODO: use StringBuilder
                     if (readOnly)
                     {
@@ -101,31 +97,23 @@ namespace B2CIEFSetupWeb
                         context.ProtocolMessage.Scope += (" " + string.Join(" ", Constants.ReadWriteScopes));
                     }
                     context.ProtocolMessage.State = readOnly.ToString();
-                    return Task.CompletedTask;
                 };
-                options.Events.OnMessageReceived = context =>
+                var previousReceived  = options.Events.OnMessageReceived;
+                options.Events.OnMessageReceived = async context =>
                 {
+                    if (previousReceived != null)
+                    {
+                        await previousReceived(context);
+                    }
                     var readOnly = false;
                     var readOnlyStr = context.ProtocolMessage.State;
                     bool.TryParse(readOnlyStr, out readOnly);
                     UpdateScopes(options.Scope, readOnly);
-                    return Task.CompletedTask;
-                };
-                options.Events.OnTicketReceived = context =>
-                {
-                    // If your authentication logic is based on users then add your logic here
-                    return Task.CompletedTask;
                 };
                 options.Events.OnAuthenticationFailed = context =>
                 {
                     context.Response.Redirect($"/Error?msg={Base64UrlEncoder.Encode(context.Exception.Message)}");
                     context.HandleResponse(); // Suppress the exception
-                    return Task.CompletedTask;
-                };
-                // If your application needs to authenticate single users, add your user validation below.
-                options.Events.OnTokenValidated = context =>
-                {
-                    var id = context.ProtocolMessage.IdToken;
                     return Task.CompletedTask;
                 };
             }));

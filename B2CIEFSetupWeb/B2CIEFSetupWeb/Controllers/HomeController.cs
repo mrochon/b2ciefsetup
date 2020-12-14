@@ -39,7 +39,7 @@ namespace B2CIEFSetupWeb.Controllers
             //TODO: allow user to requets read scopes only (no app creation)
             await _authenticator.ChallengeAsync(
                 Request.HttpContext,
-                "AzureADOpenID",
+                "OpenIdConnect",
                 new AuthenticationProperties(
                     new Dictionary<string, string>()
                     {
