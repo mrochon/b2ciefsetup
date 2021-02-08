@@ -24,23 +24,24 @@
      </div>
     <div class="text-left">
         <p class="text-justify">The above IEF applications (resource: IdentityExperienceFramework and client: ProxyIdentityExperienceFramework) need an admin consent before 
-        they can be used by IEF policies. <b>If their status shows up as 'New' above, you MUST provide this consent through the <a href="https://portal.azure.com">Azure portal</a> or by
+        they can be used by IEF policies.
+        </p>
+        <p><b>If their status shows up as 'New' above, you MUST provide this consent through the <a href="https://portal.azure.com">Azure portal</a> or by
         <a href=@Model.ConsentUrl>requesting an OIDC signin to the client app.</a></b> You will be asked to sign in (make sure to use an admin account) and 
         then consent to the IEF client app getting a token to the resource app. You will be then redirected to a non-existent page - client app
-            has no valid reply url. You can ignore that - consent has already been recorded.
+            has no valid reply url. You can ignore that - consent would have been recorded by then.
         </p>
 
         <p>Use the following snippets with
         <a href="https://github.com/mrochon/b2cief-upload"> the PowerShell policy upload tool.</a></p>
-        <h4>Json configuration file</h4>
+        <h4>Json configuration file to enable saving/reading extension_ attributes</h4>
         <pre>
 {
     "ExtAppId": "@Model.Items[4].Id",
     "ExtObjectId": "@Model.Items[5].Id"
 }
         </pre>
-        <br/>
-        <h4>Extensions.xml claims provider source</h4>
+        <h5>Extensions.xml claims provider source</h5>
         <pre>
 &ltDisplayName&gtAzure Active Directory&lt/DisplayName&gt
     &ltTechnicalProfiles&gt

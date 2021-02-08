@@ -16,7 +16,7 @@ namespace B2CIEFSetupWeb.Models
         public string DomainName { get; set; }
 
         [Required]
-        [DisplayName("Validate only (do not create)")]
+        [DisplayName("Validate only (do not create any objects)")]
         public bool ValidateOnly { get; set; }
 
     }
