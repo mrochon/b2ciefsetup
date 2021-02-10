@@ -80,6 +80,8 @@ namespace B2CIEFSetupWeb.Controllers
             }
             model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/authorize?client_id={res[1].Id}&prompt=admin_consent&response_type=code&nonce=defaultNonce";
 
+            _logger.LogInformation($"Update?: {!readOnly}; Modified?: {model.Items.Exists(item => item.Status == "New")}; Name?: {tenantId}");
+
             return View(model);
         }
 
