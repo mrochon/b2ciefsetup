@@ -3,8 +3,10 @@
 ## Purpose
 Configures an existing B2C tenant for use with Identity Experience Framework custom policies. Performs all
 tasks defined in the [get started](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications)
-document **except** [creating a Facebook signing key](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#create-the-facebook-key) 
-required by some [starter policies](https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack).
+document including [creating a Facebook signing key](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#create-the-facebook-key) 
+required by some [starter policies](https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack). The application creates a fake secret so that the
+starter pack policies referencing Facebook (those supporting social logins) can be loaded without errors. You will need to replace that key
+with your own if you plan on using Facebook for user accounts.
 
 ## Usage
 The application is [deployed and ready to use](https://b2ciefsetup.azurewebsites.net):
