@@ -27,8 +27,14 @@
         <form asp-action="Index" asp-controller="Home">
             <label asp-for="DomainName"></label>
             <p><input asp-for="DomainName" placeholder="yourdomain" style="text-align: right" />.onmicrosoft.com</p>
-            <p><label asp-for="ValidateOnly"></label>
-                <input asp-for="ValidateOnly" /></p>
+            <p>
+                <input asp-for="CreateDummyFacebook" />
+                <label asp-for="CreateDummyFacebook"></label>
+            </p>
+            <p>
+                <input asp-for="ValidateOnly" />
+                <label asp-for="ValidateOnly"></label>
+            </p>
             <input type="submit" />
         </form>
     </div>

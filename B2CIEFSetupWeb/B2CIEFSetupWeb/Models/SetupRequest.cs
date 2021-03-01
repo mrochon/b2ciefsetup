@@ -19,5 +19,8 @@ namespace B2CIEFSetupWeb.Models
         [DisplayName("Validate only (do not create any objects)")]
         public bool ValidateOnly { get; set; }
 
+        [Required]
+        [DisplayName("Create dummy Facebook secret to enable upload of starter pack policies with social provider references. Not needed if only local accounts starter pack will be uploaded or if a valid key will be created via the portal.")]
+        public bool CreateDummyFacebook { get; set; }
     }
 }

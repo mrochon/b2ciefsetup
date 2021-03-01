@@ -12,9 +12,16 @@ using System.Threading.Tasks;
 
 namespace B2CIEFSetupWeb.Utilities
 {
+    public class IEFObject
+    {
+        public enum S { New, Existing, NotFound }
+        public string Name;
+        public string Id;
+        public S Status;
+    }
     public interface IB2CSetup
     {
-        Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly);
+        Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly, bool dummyFB);
     }
     public class B2CSetup : IB2CSetup
     {
@@ -28,7 +35,7 @@ namespace B2CIEFSetupWeb.Utilities
         }
         public string DomainName { get; private set; }
         private bool _readOnly = false;
-        public async Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly)
+        public async Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly, bool dummyFB)
         {
             using (_logger.BeginScope("SetupAsync: {0} - Read only: {1}", domainId, readOnly))
             {
@@ -58,7 +65,8 @@ namespace B2CIEFSetupWeb.Utilities
                         Id = extAppId,
                         Status = String.IsNullOrEmpty(extAppId) ? IEFObject.S.NotFound : IEFObject.S.Existing
                     });
-                } catch(Exception ex)
+                }
+                catch (Exception ex)
                 {
                     _logger.LogError(ex, "SetupAsync failed");
                 }
@@ -249,6 +257,7 @@ namespace B2CIEFSetupWeb.Utilities
         {
             await CreateKeyIfNotExistsAsync("TokenSigningKeyContainer", "sig");
             await CreateKeyIfNotExistsAsync("TokenEncryptionKeyContainer", "enc");
+            await CreateKeyIfNotExistsAsync("FacebookSecret", "sig");
         }
         private async Task CreateKeyIfNotExistsAsync(string name, string use)
         {
@@ -265,7 +274,9 @@ namespace B2CIEFSetupWeb.Utilities
             {
                 keySetupState.Status = IEFObject.S.Existing;
                 if (_readOnly) return;
-            } else {
+            }
+            else
+            {
                 if (_readOnly) return;
                 var httpResp = await _http.PostAsync("https://graph.microsoft.com/beta/trustFramework/keySets",
                     new StringContent(JsonConvert.SerializeObject(new { id = name }), Encoding.UTF8, "application/json"));
@@ -305,13 +316,5 @@ namespace B2CIEFSetupWeb.Utilities
             }
             return String.Empty;
         }
-    }
-
-    public class IEFObject
-    {
-        public enum S { New, Existing, NotFound }
-        public string Name;
-        public string Id;
-        public S Status;
     }
 }

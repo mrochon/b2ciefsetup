@@ -43,7 +43,7 @@ namespace B2CIEFSetupWeb.Controllers
                 new AuthenticationProperties(
                     new Dictionary<string, string>()
                     {
-                        { ".redirect", "/home/setup?readOnly=" + req.ValidateOnly.ToString() }
+                        { ".redirect", $"/home/setup?readOnly={req.ValidateOnly.ToString()}&fb={req.CreateDummyFacebook}" }
                     },
                     new Dictionary<string, object>()
                     {
@@ -59,15 +59,19 @@ namespace B2CIEFSetupWeb.Controllers
             return View();
         }
         [Authorize]
-        public async Task<IActionResult> Setup([FromServices] Utilities.B2CSetup setup, [FromServices] ITokenAcquisition tokenAcquisition)
+        public async Task<IActionResult> Setup([FromServices] Utilities.B2CSetup setup)
         {
             var readOnlyStr = Request.Query["readOnly"].First();
             bool readOnly = true;
             bool.TryParse(readOnlyStr, out readOnly);
+            var fbStr = Request.Query["fb"].First();
+            bool fb = true;
+            bool.TryParse(fbStr, out fb);
+
             var tenantId = User.Claims.First(c => c.Type == "http://schemas.microsoft.com/identity/claims/tenantid").Value;
             //var token = await tokenAcquisition.GetAccessTokenOnBehalfOfUserAsync(Constants.Scopes, tenantId);
 
-            var res = await setup.SetupAsync(tenantId, readOnly);
+            var res = await setup.SetupAsync(tenantId, readOnly, fb);
             var model = new SetupState();
             foreach(var item in res)
             {
