@@ -12,7 +12,7 @@ namespace B2CIEFSetupWeb.Models
         [Required]
         [MaxLength(256), MinLength(4)]
         [RegularExpression("^([a-zA-Z0-9]+)$", ErrorMessage = "Invalid tenant name")]
-        [DisplayName("Your B2C domain name")]
+        [DisplayName("B2C domain name")]
         public string DomainName { get; set; }
 
         [Required]
@@ -20,7 +20,7 @@ namespace B2CIEFSetupWeb.Models
         public bool ValidateOnly { get; set; }
 
         [Required]
-        [DisplayName("Create dummy Facebook secret to enable upload of starter pack policies with social provider references. Not needed if only local accounts starter pack will be uploaded or if a valid key will be created via the portal.")]
+        [DisplayName("Create dummy Facebook secret")]
         public bool CreateDummyFacebook { get; set; }
     }
 }
