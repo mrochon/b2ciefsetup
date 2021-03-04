@@ -34,16 +34,17 @@
 
         <p>Use the following snippets with
         <a href="https://github.com/mrochon/b2cief-upload"> the PowerShell policy upload tool.</a></p>
-        <h4>Json configuration file to enable saving/reading extension_ attributes</h4>
+        <h4>Json configuration file (conf.json) to enable saving/reading extension_ attributes</h4>
         <pre>
 {
     "ExtAppId": "@Model.Items[4].Id",
     "ExtObjectId": "@Model.Items[5].Id"
 }
         </pre>
-        <h5>Extensions.xml claims provider source</h5>
+        <h5>Add to TrustFrameworkExtensionsExtensions.xml</h5>
         <pre>
-&ltDisplayName&gtAzure Active Directory&lt/DisplayName&gt
+&ltClaimsProvider&gt
+    &ltDisplayName&gtAzure Active Directory&lt/DisplayName&gt
     &ltTechnicalProfiles&gt
         &ltTechnicalProfile Id="AAD-Common"&gt
             &ltDisplayName&gtAzure Active Directory&lt/DisplayName&gt
@@ -51,8 +52,8 @@
                 &ltItem Key="ApplicationObjectId"&gt{ExtObjectId}&lt/Item&gt
                 &ltItem Key="ClientId"&gt{ExtAppId}&lt/Item&gt
             &lt/Metadata&gt
-		&lt/TechnicalProfile&gt
-	&lt/TechnicalProfiles&gt			
+        &lt/TechnicalProfile&gt
+    &lt/TechnicalProfiles&gt			
 &lt/ClaimsProvider&gt
         </pre>
     </div>
