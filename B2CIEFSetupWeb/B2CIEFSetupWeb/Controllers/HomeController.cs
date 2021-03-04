@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using B2CIEFSetupWeb.Utilities;
+using Microsoft.IdentityModel.Tokens;
 
 namespace B2CIEFSetupWeb.Controllers
 {
@@ -91,9 +92,15 @@ namespace B2CIEFSetupWeb.Controllers
 
         [AllowAnonymous]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        public IActionResult Error(string msg = "")
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            _logger.LogError($"Error reported{Base64UrlEncoder.Decode(msg)}");
+            return View(
+                new ErrorViewModel 
+                { 
+                    RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier ,
+                    Message = Base64UrlEncoder.Decode(msg)
+                });
         }
     }
 }
