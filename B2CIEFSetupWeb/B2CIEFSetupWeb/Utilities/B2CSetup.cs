@@ -44,7 +44,7 @@ namespace B2CIEFSetupWeb.Utilities
                 {
                     var token = await _tokenAcquisition.GetAccessTokenForUserAsync(
                         readOnly ? Constants.ReadOnlyScopes : Constants.ReadWriteScopes,
-                        domainId);
+                        tenantId:domainId);
                     _http = new HttpClient();
                     _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
