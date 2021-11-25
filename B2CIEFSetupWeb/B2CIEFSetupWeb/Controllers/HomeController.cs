@@ -83,7 +83,7 @@ namespace B2CIEFSetupWeb.Controllers
                     Status = item.Status == IEFObject.S.Existing? "Existing": item.Status == IEFObject.S.New ? "New": "Not found"
                 });
             }
-            model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/authorize?client_id={res[1].Id}&prompt=admin_consent&response_type=code&nonce=defaultNonce";
+            model.ConsentUrl = $"https://login.microsoftonline.com/{tenantId}/adminconsent?client_id={res[1].Id}";
 
             _logger.LogInformation($"Update?: {!readOnly}; Modified?: {model.Items.Exists(item => item.Status == "New")}; Name?: {tenantId}");
 

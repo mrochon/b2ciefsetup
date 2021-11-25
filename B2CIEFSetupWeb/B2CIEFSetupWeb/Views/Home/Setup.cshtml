@@ -29,7 +29,8 @@
         <p><b>If their status shows up as 'New' above, you MUST provide this consent through either the <a href="https://portal.azure.com">Azure portal</a> or by
         <a href=@Model.ConsentUrl>requesting an OIDC signin to the client app.</a></b> Using the latter method, you will be asked to sign in (make sure to use an admin account) and 
         then consent to the IEF client app getting a token to the resource app. You will be then redirected to a non-existent page - client app
-            has no valid reply url. You can ignore that - consent would have been recorded by then.
+            has no valid reply url. You can ignore that - consent would have been recorded by then. If you see an error message that the application is not registered,
+            press the back button in the browser and wait for half-a-minute - application registration may not be immediately visible to this process. 
         </p>
 
         <p>Use the following snippets with

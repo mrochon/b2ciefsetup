@@ -34,6 +34,7 @@ namespace B2CIEFSetupWeb.Utilities
             _tokenAcquisition = tokenAcquisition;
         }
         public string DomainName { get; private set; }
+        public string TenantName { get; set; }
         private bool _readOnly = false;
         public async Task<List<IEFObject>> SetupAsync(string domainId, bool readOnly, bool dummyFB)
         {
@@ -68,7 +69,7 @@ namespace B2CIEFSetupWeb.Utilities
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "SetupAsync failed");
+                    _logger.LogError(ex, $"SetupAsync failed: {ex.Message}");
                 }
             }
             return _actions;
@@ -81,10 +82,11 @@ namespace B2CIEFSetupWeb.Utilities
             var AppName = "IdentityExperienceFramework";
             var ProxyAppName = "ProxyIdentityExperienceFramework";
 
-            var json = await _http.GetStringAsync("https://graph.microsoft.com/beta/domains");
+            var json = await _http.GetStringAsync("https://graph.microsoft.com/v1.0/domains");
             var value = (JArray)JObject.Parse(json)["value"];
             DomainName = ((JObject)value.First())["id"].Value<string>();
             _logger.LogTrace("Domain: {0}", DomainName);
+            TenantName = DomainName.Split('.')[0];
             //TODO: needs refactoring
 
             _actions.Add(new IEFObject()
@@ -106,149 +108,127 @@ namespace B2CIEFSetupWeb.Utilities
             //TODO: should verify whether the two apps are setup correctly
             if (_readOnly) return;
 
-            var requiredAADAccess = new
+            // OIDC/signin permissions
+            var OIDCAccess = new
             {
-                resourceAppId = "00000002-0000-0000-c000-000000000000",
+                resourceAppId = "00000003-0000-0000-c000-000000000000",
                 resourceAccess = new List<object>()
-            {
-                new {
-                    id = "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
-                    type = "Scope"
+                {
+                    new
+                    {
+                        id = "37f7f235-527c-4136-accd-4a02d197296e",
+                        type = "Scope"
+                    },
+                    new
+                    {
+                        id = "7427e0e9-2fba-42fe-b0c0-848c9e6a8182",
+                        type = "Scope"
+                    }
                 }
-            }
             };
+
+            // Create IEF App
+            var app = new
+            {
+                displayName = AppName,
+                signInAudience = "AzureADMyOrg",
+                web = new
+                {
+                    redirectUris = new List<string>() { $"https://{TenantName}.b2clogin.com/{DomainName}" }
+                },
+                requiredResourceAccess = new List<object>() { OIDCAccess }
+            };
+            var iefAppPermissionId = Guid.NewGuid().ToString("D");
+            json = JsonConvert.SerializeObject(app);
+            var resp = await _http.PostAsync($"https://graph.microsoft.com/v1.0/applications",
+                new StringContent(json, Encoding.UTF8, "application/json"));
+            if (!resp.IsSuccessStatusCode)
+                throw new Exception(resp.ReasonPhrase);
+
+            _logger.LogTrace("{0} application created", AppName);
+            var body = await resp.Content.ReadAsStringAsync();
+            var appJSON = JObject.Parse(body);
+            _actions[0].Id = (string)appJSON["appId"];
+            _actions[0].Status = IEFObject.S.New;
+            var appObjectId = (string)appJSON["id"];
+
             var iefApiPermission = new
             {
                 adminConsentDescription = $"Allow the application to access {AppName} on behalf of the signed-in user.",
                 adminConsentDisplayName = $"Access {AppName}",
-                id = Guid.NewGuid().ToString("D"),
+                id = iefAppPermissionId,
                 isEnabled = true,
-                type = "User",
-                userConsentDescription = $"Allow the application to access {AppName} on your behalf.",
-                userConsentDisplayName = $"Access {AppName}",
+                type = "Admin",
                 value = "user_impersonation"
             };
-
-            var app = new
-            {
-                isFallbackPublicClient = false,
-                displayName = AppName,
-                identifierUris = new List<string>() { $"https://{DomainName}/{AppName}" },
-                signInAudience = "AzureADMyOrg",
-                api = new { oauth2PermissionScopes = new List<object> { iefApiPermission } },
-                web = new
-                {
-                    redirectUris = new List<string>() { $"https://login.microsoftonline.com/{DomainName}" },
-                    homePageUrl = $"https://login.microsoftonline.com/{DomainName}",
-                    implicitGrantSettings = new
-                    {
-                        enableIdTokenIssuance = true,
-                        enableAccessTokenIssuance = false
-                    }
-                }
-            };
-
-            json = JsonConvert.SerializeObject(app);
-            var resp = await _http.PostAsync($"https://graph.microsoft.com/beta/applications",
+            // Expose API permission
+            json = JsonConvert.SerializeObject(new { identifierUris = new List<string>() { $"https://{DomainName}/{_actions[0].Id}" }, api = new { oauth2PermissionScopes = new List<object> { iefApiPermission } } });
+            resp = await _http.PatchAsync($"https://graph.microsoft.com/v1.0/applications/{appObjectId}",
                 new StringContent(json, Encoding.UTF8, "application/json"));
-            if (resp.IsSuccessStatusCode)
-            {
-                _logger.LogTrace("{0} application created", AppName);
-                var body = await resp.Content.ReadAsStringAsync();
-                var appJSON = JObject.Parse(body);
-                _actions[0].Id = (string)appJSON["appId"];
-                _actions[0].Status = IEFObject.S.New;
-                var spId = Guid.NewGuid().ToString("D");
-                var sp = new
-                {
-                    accountEnabled = true,
-                    appId = _actions[0].Id,
-                    appRoleAssignmentRequired = false,
-                    displayName = AppName,
-                    homepage = $"https://login.microsoftonline.com/{DomainName}",
-                    replyUrls = new List<string>() { $"https://login.microsoftonline.com/{DomainName}" },
-                    servicePrincipalNames = new List<string>() {
-                    app.identifierUris[0],
-                    _actions[0].Id
-                },
-                    tags = new string[] { "WindowsAzureActiveDirectoryIntegratedApp" },
-                };
-                resp = await _http.PostAsync($"https://graph.microsoft.com/beta/servicePrincipals",
-                    new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
-                if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
-                _logger.LogTrace("{0} SP created", AppName);
-            }
 
+            // Create SP
+            if (!resp.IsSuccessStatusCode)
+                throw new Exception(resp.ReasonPhrase);
+
+            var sp = new
+            {
+                appId = _actions[0].Id,
+                displayName = AppName
+            };
+            resp = await _http.PostAsync($"https://graph.microsoft.com/v1.0/servicePrincipals",
+                new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
+            if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
+            _logger.LogTrace("{0} SP created", AppName);
+
+
+            // Create Poxy IEF
             var proxyApp = new
             {
-                isFallbackPublicClient = true,
                 displayName = ProxyAppName,
                 signInAudience = "AzureADMyOrg",
-                publicClient = new { redirectUris = new List<string>() { $"https://login.microsoftonline.com/{DomainName}" } },
-                parentalControlSettings = new { legalAgeGroupRule = "Allow" },
-                requiredResourceAccess = new List<object>() {
-                new {
-                    resourceAppId = _actions[0].Id,
-                    resourceAccess = new List<object>()
-                    {
-                        new {
-                            id = iefApiPermission.id,
-                            type = "Scope"
-                        }
-                    }
-                },
-                new {
-                    resourceAppId = "00000002-0000-0000-c000-000000000000",
-                    resourceAccess = new List<object>()
-                    {
-                        new
-                        {
-                            id = "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
-                            type = "Scope"
-                        }
-                    }
-                }
-            },
-                web = new
+                publicClient = new { redirectUris = new List<string>() { "myapp://auth" } },
+                isFallbackPublicClient = true,
+                requiredResourceAccess = new List<object>() 
                 {
-                    implicitGrantSettings = new
+                    new 
                     {
-                        enableIdTokenIssuance = true,
-                        enableAccessTokenIssuance = false
-                    }
+                        resourceAppId = _actions[0].Id,
+                        resourceAccess = new List<object>()
+                        {
+                            new 
+                            {
+                                id = iefAppPermissionId,
+                                type = "Scope"
+                            }
+                        }
+                    },
+                    OIDCAccess
                 }
             };
-
             json = JsonConvert.SerializeObject(proxyApp);
-            resp = await _http.PostAsync($"https://graph.microsoft.com/beta/applications",
+            resp = await _http.PostAsync($"https://graph.microsoft.com/v1.0/applications",
                 new StringContent(json, Encoding.UTF8, "application/json"));
-            if (resp.IsSuccessStatusCode)
+            if (!resp.IsSuccessStatusCode)
+                throw new Exception(resp.ReasonPhrase);
+
+            _logger.LogTrace("{0} app created", ProxyAppName);
+            body = await resp.Content.ReadAsStringAsync();
+            appJSON = JObject.Parse(body);
+            _actions[1].Id = (string)appJSON["appId"];
+            _actions[1].Status = IEFObject.S.New;
+            var spProxy = new
             {
-                _logger.LogTrace("{0} app created", ProxyAppName);
-                var body = await resp.Content.ReadAsStringAsync();
-                var appJSON = JObject.Parse(body);
-                _actions[1].Id = (string)appJSON["appId"];
-                _actions[1].Status = IEFObject.S.New;
-                var sp = new
-                {
-                    accountEnabled = true,
-                    appId = _actions[1].Id,
-                    appRoleAssignmentRequired = false,
-                    displayName = ProxyAppName,
-                    //homepage = $"https://login.microsoftonline.com/{DomainName}",
-                    //publisherName = DomainNamePrefix,
-                    replyUrls = new List<string>() { $"https://login.microsoftonline.com/{DomainName}" },
-                    servicePrincipalNames = new List<string>() {
+                appId = _actions[1].Id,
+                displayName = ProxyAppName,
+                servicePrincipalNames = new List<string>() {
                     _actions[1].Id
-                },
-                    tags = new string[] { "WindowsAzureActiveDirectoryIntegratedApp" },
-                };
-                resp = await _http.PostAsync($"https://graph.microsoft.com/beta/servicePrincipals",
-                    new StringContent(JsonConvert.SerializeObject(sp), Encoding.UTF8, "application/json"));
-                if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
-                //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
-                _logger.LogTrace("{0} SP created", AppName);
-            }
+                }
+            };
+            resp = await _http.PostAsync($"https://graph.microsoft.com/v1.0/servicePrincipals",
+                new StringContent(JsonConvert.SerializeObject(spProxy), Encoding.UTF8, "application/json"));
+            if (!resp.IsSuccessStatusCode) throw new Exception(resp.ReasonPhrase);
+            //AdminConsentUrl = new Uri($"https://login.microsoftonline.com/{tokens.TenantId}/oauth2/authorize?client_id={appIds.ProxyAppId}&prompt=admin_consent&response_type=code&nonce=defaultNonce");
+            _logger.LogTrace("{0} SP created", ProxyAppName);
 
             return;
         }
@@ -304,7 +284,7 @@ namespace B2CIEFSetupWeb.Utilities
         }
         private async Task<string> GetAppIdAsync(string name, bool getObjectId = false)
         {
-            var json = await _http.GetStringAsync($"https://graph.microsoft.com/beta/applications?$filter=startsWith(displayName,\'{name}\')");
+            var json = await _http.GetStringAsync($"https://graph.microsoft.com/v1.0/applications?$filter=startsWith(displayName,\'{name}\')");
             var value = (JArray)JObject.Parse(json)["value"];
             //TODO: what if someone created several apps?
             if (value.Count > 0)
