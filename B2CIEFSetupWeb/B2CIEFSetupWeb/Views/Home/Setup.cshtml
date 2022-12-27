@@ -23,38 +23,15 @@
         </table>
      </div>
     <div class="text-left">
-        <p class="text-justify">The above IEF applications (resource: IdentityExperienceFramework and client: ProxyIdentityExperienceFramework) need an admin consent before 
+        <p class="text-justify">The above ProxyIdentityExperienceFramework's permissions to call the IdentityExperienceFramework resource reqires admin consent before 
         they can be used by IEF policies.
         </p>
-        <p><b>If their status shows up as 'New' above, you MUST provide this consent through either the <a href="https://portal.azure.com">Azure portal</a> or by
-        <a href=@Model.ConsentUrl>requesting an OIDC signin to the client app.</a></b> Using the latter method, you will be asked to sign in (make sure to use an admin account) and 
-        then consent to the IEF client app getting a token to the resource app. You will be then redirected to a non-existent page - client app
-            has no valid reply url. You can ignore that - consent would have been recorded by then. If you see an error message that the application is not registered,
+        <p><b>If the status of either application shows up as 'New' above, you MUST provide this consent by <a href=@Model.ConsentUrl>requesting an OIDC signin to the client app.</a></b>.
+            You will be asked to sign in (make sure to use an admin account) and agree to the consent. Afterwards you will be then redirected to a non-existent page - you can ignore that. If you see an error message that the application is not registered,
             press the back button in the browser and wait for half-a-minute - application registration may not be immediately visible to this process. 
         </p>
 
-        <p>Use the following snippets with
-        <a href="https://github.com/mrochon/IEFPolicies"> the PowerShell policy upload tool.</a></p>
-        <h4>Json configuration file (conf.json) to enable saving/reading extension_ attributes</h4>
-        <pre>
-{
-    "ExtAppId": "@Model.Items[5].Id",
-    "ExtObjectId": "@Model.Items[6].Id"
-}
-        </pre>
-        <h5>Add to TrustFrameworkExtensionsExtensions.xml</h5>
-        <pre>
-&ltClaimsProvider&gt
-    &ltDisplayName&gtAzure Active Directory&lt/DisplayName&gt
-    &ltTechnicalProfiles&gt
-        &ltTechnicalProfile Id="AAD-Common"&gt
-            &ltDisplayName&gtAzure Active Directory&lt/DisplayName&gt
-            &ltMetadata&gt
-                &ltItem Key="ApplicationObjectId"&gt{ExtObjectId}&lt/Item&gt
-                &ltItem Key="ClientId"&gt{ExtAppId}&lt/Item&gt
-            &lt/Metadata&gt
-        &lt/TechnicalProfile&gt
-    &lt/TechnicalProfiles&gt			
-&lt/ClaimsProvider&gt
-        </pre>
+        <p>The
+        <a href="https://github.com/mrochon/IEFPolicies"> PowerShell policy admin tool</a>, Import-IefPolicies command will automatically detect
+        the above settings and update your policies prior to load.</p>
     </div>
